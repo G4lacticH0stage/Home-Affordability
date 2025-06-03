@@ -394,13 +394,14 @@ const HomeAffordabilityCalculator = () => {
     monthlyTakeHome: ''
   });
 
-  // Housing state
+  // Housing state - FIXED: Added interestRate to initial state
   const [housingData, setHousingData] = useState({
     homePrice: '',
     downPaymentType: 'percent', // 'percent' or 'amount'
     downPaymentPercent: '20',
     downPaymentAmount: '',
     loanTermYears: '30',
+    interestRate: '6.5', // FIXED: Added default interest rate
     includePropertyTax: true,
     propertyTaxRate: '1.1',
     includeHomeInsurance: true,
@@ -474,7 +475,7 @@ const HomeAffordabilityCalculator = () => {
   useEffect(() => {
     const term = parseInt(housingData.loanTermYears, 10);
     const defaultRate = DEFAULT_INTEREST_RATES[term] || DEFAULT_INTEREST_RATES[30];
-    setHousingData(prev => ({ ...prev, interestRate: defaultRate }));
+    setHousingData(prev => ({ ...prev, interestRate: defaultRate.toString() })); // FIXED: Convert to string
   }, [housingData.loanTermYears]);
 
   // Calculate down payment amount when percent changes
@@ -591,6 +592,11 @@ const HomeAffordabilityCalculator = () => {
       }
     }
 
+    // FIXED: Validate interest rate
+    if (!housingData.interestRate || isNaN(parseFloat(housingData.interestRate)) || parseFloat(housingData.interestRate) < 0) {
+      newErrors.interestRate = 'Please enter a valid interest rate';
+    }
+
     // Validate optional financial data
     if (financialData.monthlyDebts && (isNaN(parseFloat(financialData.monthlyDebts)) || parseFloat(financialData.monthlyDebts) < 0)) {
       newErrors.monthlyDebts = 'Please enter a valid monthly debt amount';
@@ -638,7 +644,7 @@ const HomeAffordabilityCalculator = () => {
       // Parse other inputs
       const monthlyDebts = parseFloat(financialData.monthlyDebts) || 0;
       const hasDebts = monthlyDebts > 0;
-      const interestRate = parseFloat(housingData.interestRate);
+      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30]; // FIXED: Added fallback
       const loanTermYears = parseInt(housingData.loanTermYears, 10);
       
       // Determine down payment based on type
@@ -832,7 +838,7 @@ const HomeAffordabilityCalculator = () => {
     }
   };
   
-  // Calculate affordability for a specific home price
+  // Calculate affordability for a specific home price - FIXED: Added missing function
   const analyzeMortgage = () => {
     if (!validateForm()) return;
     
@@ -871,7 +877,7 @@ const HomeAffordabilityCalculator = () => {
       const homePrice = parseFloat(housingData.homePrice);
       const monthlyDebts = parseFloat(financialData.monthlyDebts) || 0;
       const hasDebts = monthlyDebts > 0;
-      const interestRate = parseFloat(housingData.interestRate);
+      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30]; // FIXED: Added fallback
       const loanTermYears = parseInt(housingData.loanTermYears, 10);
       
       // Calculate down payment
@@ -914,6 +920,9 @@ const HomeAffordabilityCalculator = () => {
       
       // Calculate percentage of gross income
       const percentOfGrossIncome = (totalMonthlyPayment / monthlyGrossIncome) * 100;
+      
+      // Calculate percentage of take-home income
+      const percentOfTakeHomeIncome = (totalMonthlyPayment / monthlyTakeHome) * 100;
       
       // Determine affordability using standard rules
       let isAffordable = false;
@@ -960,6 +969,9 @@ const HomeAffordabilityCalculator = () => {
         // Calculate percentage of gross income
         const percentOfGrossIncome = (totalTermPayment / monthlyGrossIncome) * 100;
         
+        // Calculate percentage of take-home income
+        const percentOfTakeHomeIncome = (totalTermPayment / monthlyTakeHome) * 100;
+        
         // Determine affordability class
         const affordabilityClass = getAffordabilityColorClass(percentOfGrossIncome, hasDebts);
         
@@ -969,6 +981,7 @@ const HomeAffordabilityCalculator = () => {
           totalPayment: totalTermPayment,
           totalInterest: totalInterest,
           percentOfGrossIncome: percentOfGrossIncome,
+          percentOfTakeHomeIncome: percentOfTakeHomeIncome,
           affordabilityClass: affordabilityClass
         };
       });
@@ -987,6 +1000,7 @@ const HomeAffordabilityCalculator = () => {
         monthlyInsurance: monthlyInsurance,
         totalMonthlyPayment: totalMonthlyPayment,
         percentOfGrossIncome: percentOfGrossIncome,
+        percentOfTakeHomeIncome: percentOfTakeHomeIncome,
         affordabilityClass: affordabilityClass,
         isAffordable: isAffordable,
         taxResults: taxResults
@@ -1013,7 +1027,12 @@ const HomeAffordabilityCalculator = () => {
   return (
     <div className="calculator-container">
       <div className="calculator-header">
-        <h1>Home Affordability Calculator</h1>
+        <h1>Home Buyer's Financial Calculator</h1>
+        <h2>Home Affordability Calculator</h2>
+        <p className="calculator-description">
+          Use this calculator to understand how much home you can afford based on your income and financial situation. 
+          The calculator considers both your take-home pay and recommended mortgage affordability guidelines.
+        </p>
         <div className="tab-navigation">
           <button 
             className={`tab-button ${activeTab === 'what-can-i-afford' ? 'active' : ''}`}
@@ -1213,7 +1232,9 @@ const HomeAffordabilityCalculator = () => {
                   step="0.01"
                   min="0"
                   max="15"
+                  className={errors.interestRate ? 'error' : ''}
                 />
+                {errors.interestRate && <div className="error-message">{errors.interestRate}</div>}
               </div>
             </div>
             
@@ -1344,14 +1365,14 @@ const HomeAffordabilityCalculator = () => {
                     <span>50%</span>
                   </div>
                   <div className={`affordability-message ${results.affordabilityClass}`}>
-  {results.affordabilityClass === "green" ? (
-    "You are well within budget, you should be proud!"
-  ) : results.affordabilityClass === "yellow" ? (
-    "This house is a little outside of your budget. It is manageable, but you'll need to be more conscious about spending."
-  ) : (
-    "This house is outside of your budget. Maybe another home will be more suitable, but if your heart is set on this one be sure to cut expenses elsewhere."
-  )}
-</div> 
+                    {results.affordabilityClass === "green" ? (
+                      "You are well within budget, you should be proud!"
+                    ) : results.affordabilityClass === "yellow" ? (
+                      "This house is a little outside of your budget. It is manageable, but you'll need to be more conscious about spending."
+                    ) : (
+                      "This house is outside of your budget. Maybe another home will be more suitable, but if your heart is set on this one be sure to cut expenses elsewhere."
+                    )}
+                  </div> 
                 </div>
               </div>
 
