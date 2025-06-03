@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import './TaxCalculator.css';
+import './HomeAffordabilityCalculator.css'; // FIXED: Changed from TaxCalculator.css
+// NOTE: You'll need to create HomeAffordabilityCalculator.css or rename TaxCalculator.css 
+// and remove any fixed "Tax Calculator" headers from the CSS file
 import { INDIANA_COUNTIES } from '../data/indianaTaxData';
 import { MARYLAND_COUNTIES } from '../data/marylandTaxData';
 import { MICHIGAN_CITIES, calculateMichiganLocalTax } from '../data/michiganTaxData';
@@ -778,8 +780,8 @@ const HomeAffordabilityCalculator = () => {
           totalTermPayment += monthlyInsurance;
         }
         
-        // Calculate total interest paid over loan term
-        const totalInterest = (termPayment * term * 12) - maxLoanAmount;
+        // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
+        const totalInterest = (termPayment * term * 12) - (maxHomePrice - downPaymentAmount);
         
         // Calculate percentage of gross income
         const percentOfGrossIncome = (totalTermPayment / monthlyGrossIncome) * 100;
@@ -963,8 +965,8 @@ const HomeAffordabilityCalculator = () => {
           totalTermPayment += monthlyInsurance;
         }
         
-        // Calculate total interest paid over loan term
-        const totalInterest = (termPayment * term * 12) - loanAmount;
+        // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
+        const totalInterest = (termPayment * term * 12) - (homePrice - downPaymentAmount);
         
         // Calculate percentage of gross income
         const percentOfGrossIncome = (totalTermPayment / monthlyGrossIncome) * 100;
@@ -1027,7 +1029,6 @@ const HomeAffordabilityCalculator = () => {
   return (
     <div className="calculator-container">
       <div className="calculator-header">
-        <h1>Home Buyer's Financial Calculator</h1>
         <h2>Home Affordability Calculator</h2>
         <p className="calculator-description">
           Use this calculator to understand how much home you can afford based on your income and financial situation. 
