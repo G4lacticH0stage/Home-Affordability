@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './TaxCalculator.css'; // FIXED: Changed from TaxCalculator.css
+import './HomeAffordabilityCalculator.css'; // FIXED: Changed from TaxCalculator.css
 // NOTE: You'll need to create HomeAffordabilityCalculator.css or rename TaxCalculator.css 
 // and remove any fixed "Tax Calculator" headers from the CSS file
 import { INDIANA_COUNTIES } from '../data/indianaTaxData';
