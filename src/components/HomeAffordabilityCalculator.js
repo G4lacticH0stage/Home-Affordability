@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './HomeAffordabilityCalculator.css'; // FIXED: Changed from TaxCalculator.css
+import './TaxCalculator.css'; // FIXED: Changed from TaxCalculator.css
 // NOTE: You'll need to create HomeAffordabilityCalculator.css or rename TaxCalculator.css 
 // and remove any fixed "Tax Calculator" headers from the CSS file
 import { INDIANA_COUNTIES } from '../data/indianaTaxData';
@@ -1029,11 +1029,6 @@ const HomeAffordabilityCalculator = () => {
   return (
     <div className="calculator-container">
       <div className="calculator-header">
-        <h2>Home Affordability Calculator</h2>
-        <p className="calculator-description">
-          Use this calculator to understand how much home you can afford based on your income and financial situation. 
-          The calculator considers both your take-home pay and recommended mortgage affordability guidelines.
-        </p>
         <div className="tab-navigation">
           <button 
             className={`tab-button ${activeTab === 'what-can-i-afford' ? 'active' : ''}`}
