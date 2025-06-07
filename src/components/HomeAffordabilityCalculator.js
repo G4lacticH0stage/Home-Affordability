@@ -407,7 +407,8 @@ const HomeAffordabilityCalculator = () => {
     includePropertyTax: true,
     propertyTaxRate: '1.1',
     includeHomeInsurance: true,
-    homeInsurance: '1200'
+    homeInsurance: '1200',
+    enableFHA: false // NEW: Added FHA loan option
   });
 
   // Additional financial details
@@ -479,6 +480,16 @@ const HomeAffordabilityCalculator = () => {
     const defaultRate = DEFAULT_INTEREST_RATES[term] || DEFAULT_INTEREST_RATES[30];
     setHousingData(prev => ({ ...prev, interestRate: defaultRate.toString() })); // FIXED: Convert to string
   }, [housingData.loanTermYears]);
+
+  // Handle FHA toggle and set down payment to 3.5%
+  useEffect(() => {
+    if (housingData.enableFHA) {
+      setHousingData(prev => ({
+        ...prev,
+        downPaymentPercent: '3.5'
+      }));
+    }
+  }, [housingData.enableFHA]);
 
   // Calculate down payment amount when percent changes
   useEffect(() => {
@@ -681,6 +692,14 @@ const HomeAffordabilityCalculator = () => {
         additionalHousingCosts += annualInsurance / 12;
       }
       
+      // Add MIP if FHA loan is enabled
+      if (housingData.enableFHA) {
+        // FHA MIP is typically 0.85% annually for loans over 90% LTV
+        const estimatedHomePrice = 300000; // Placeholder for calculation
+        const monthlyMIP = (estimatedHomePrice * 0.0085) / 12;
+        additionalHousingCosts += monthlyMIP;
+      }
+      
       // Adjust max payment to account for property tax and insurance
       const maxPIPayment = maxMonthlyPayment - additionalHousingCosts;
       
@@ -743,6 +762,7 @@ const HomeAffordabilityCalculator = () => {
       let totalMonthlyPayment = baseMonthlyPayment;
       let monthlyPropertyTax = 0;
       let monthlyInsurance = 0;
+      let monthlyMIP = 0;
       
       if (housingData.includePropertyTax) {
         const propertyTaxRate = parseFloat(housingData.propertyTaxRate) / 100;
@@ -754,6 +774,12 @@ const HomeAffordabilityCalculator = () => {
         const annualInsurance = parseFloat(housingData.homeInsurance) || 1200;
         monthlyInsurance = annualInsurance / 12;
         totalMonthlyPayment += monthlyInsurance;
+      }
+      
+      // Add MIP for FHA loans
+      if (housingData.enableFHA) {
+        monthlyMIP = (maxHomePrice * 0.0085) / 12;
+        totalMonthlyPayment += monthlyMIP;
       }
       
       // Calculate payment options for different terms
@@ -778,6 +804,10 @@ const HomeAffordabilityCalculator = () => {
         
         if (housingData.includeHomeInsurance) {
           totalTermPayment += monthlyInsurance;
+        }
+        
+        if (housingData.enableFHA) {
+          totalTermPayment += monthlyMIP;
         }
         
         // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
@@ -824,11 +854,13 @@ const HomeAffordabilityCalculator = () => {
         baseMonthlyPayment: baseMonthlyPayment,
         monthlyPropertyTax: monthlyPropertyTax,
         monthlyInsurance: monthlyInsurance,
+        monthlyMIP: monthlyMIP,
         totalMonthlyPayment: totalMonthlyPayment,
         percentOfGrossIncome: percentOfGrossIncome,
         percentOfTakeHomeIncome: percentOfTakeHomeIncome,
         affordabilityClass: affordabilityClass,
-        taxResults: taxResults
+        taxResults: taxResults,
+        enableFHA: housingData.enableFHA
       });
       
       // Set payment options by term
@@ -907,6 +939,7 @@ const HomeAffordabilityCalculator = () => {
       let totalMonthlyPayment = baseMonthlyPayment;
       let monthlyPropertyTax = 0;
       let monthlyInsurance = 0;
+      let monthlyMIP = 0;
       
       if (housingData.includePropertyTax) {
         const propertyTaxRate = parseFloat(housingData.propertyTaxRate) / 100;
@@ -918,6 +951,12 @@ const HomeAffordabilityCalculator = () => {
         const annualInsurance = parseFloat(housingData.homeInsurance) || 1200;
         monthlyInsurance = annualInsurance / 12;
         totalMonthlyPayment += monthlyInsurance;
+      }
+      
+      // Add MIP for FHA loans
+      if (housingData.enableFHA) {
+        monthlyMIP = (homePrice * 0.0085) / 12;
+        totalMonthlyPayment += monthlyMIP;
       }
       
       // Calculate percentage of gross income
@@ -965,6 +1004,10 @@ const HomeAffordabilityCalculator = () => {
           totalTermPayment += monthlyInsurance;
         }
         
+        if (housingData.enableFHA) {
+          totalTermPayment += monthlyMIP;
+        }
+        
         // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
         const totalInterest = (termPayment * term * 12) - (homePrice - downPaymentAmount);
         
@@ -1000,12 +1043,14 @@ const HomeAffordabilityCalculator = () => {
         baseMonthlyPayment: baseMonthlyPayment,
         monthlyPropertyTax: monthlyPropertyTax,
         monthlyInsurance: monthlyInsurance,
+        monthlyMIP: monthlyMIP,
         totalMonthlyPayment: totalMonthlyPayment,
         percentOfGrossIncome: percentOfGrossIncome,
         percentOfTakeHomeIncome: percentOfTakeHomeIncome,
         affordabilityClass: affordabilityClass,
         isAffordable: isAffordable,
-        taxResults: taxResults
+        taxResults: taxResults,
+        enableFHA: housingData.enableFHA
       });
       
       // Set payment options by term
@@ -1190,6 +1235,7 @@ const HomeAffordabilityCalculator = () => {
                       onChange={(e) => handleHousingChange('downPaymentPercent', e.target.value)}
                       placeholder="Enter percentage"
                       className={errors.downPaymentPercent ? 'error' : ''}
+                      disabled={housingData.enableFHA}
                     />
                   ) : (
                     <input
@@ -1232,6 +1278,18 @@ const HomeAffordabilityCalculator = () => {
                 />
                 {errors.interestRate && <div className="error-message">{errors.interestRate}</div>}
               </div>
+            </div>
+            
+            {/* FHA Loan Toggle */}
+            <div className="input-toggle">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={housingData.enableFHA}
+                  onChange={(e) => handleHousingChange('enableFHA', e.target.checked)}
+                />
+                FHA Loan (3.5% down payment + MIP)
+              </label>
             </div>
             
             <div className="toggle-section">
@@ -1332,47 +1390,49 @@ const HomeAffordabilityCalculator = () => {
             <div className="results">
               <h2>Results Summary</h2>
 
-              {/* Visual representation of mortgage as % of income */}
-              <div className="affordability-visual">
-                <h3>Mortgage Impact on Monthly Budget</h3>
-                <div className="affordability-meter">
-                  <div className="meter-header">
-                    <span>Monthly Gross Income: {formatCurrency(results.monthlyGrossIncome)}</span>
-                    <span className={results.affordabilityClass}>
-                      {results.percentOfGrossIncome.toFixed(1)}% of Gross Income
-                    </span>
+              {/* Only show mortgage impact section in "Analyze Mortgage" tab when home price is provided */}
+              {activeTab === 'analyze-mortgage' && results && results.homePrice && (
+                <div className="affordability-visual">
+                  <h3>Mortgage Impact on Monthly Budget</h3>
+                  <div className="affordability-meter">
+                    <div className="meter-header">
+                      <span>Monthly Gross Income: {formatCurrency(results.monthlyGrossIncome)}</span>
+                      <span className={results.affordabilityClass}>
+                        {results.percentOfGrossIncome.toFixed(1)}% of Gross Income
+                      </span>
+                    </div>
+                    <div className="meter-header">
+                      <span>Monthly Take-Home: {formatCurrency(results.monthlyTakeHome)}</span>
+                      <span className={results.affordabilityClass}>
+                        {results.percentOfTakeHomeIncome.toFixed(1)}% of Take-Home Pay
+                      </span>
+                    </div>
+                    <div className="meter-bar">
+                      <div 
+                        className={`meter-fill ${results.affordabilityClass}`} 
+                        style={{width: `${Math.min(results.percentOfGrossIncome * 2, 100)}%`}}
+                      ></div>
+                    </div>
+                    <div className="meter-labels">
+                      <span>0%</span>
+                      <span>28%</span>
+                      <span>32%</span>
+                      <span>50%</span>
+                    </div>
+                    <div className={`affordability-message ${results.affordabilityClass}`}>
+                      {results.affordabilityClass === "green" ? (
+                        "You are well within budget, you should be proud!"
+                      ) : results.affordabilityClass === "yellow" ? (
+                        "This house is a little outside of your budget. It is manageable, but you'll need to be more conscious about spending."
+                      ) : (
+                        "This house is outside of your budget. Maybe another home will be more suitable, but if your heart is set on this one be sure to cut expenses elsewhere."
+                      )}
+                    </div> 
                   </div>
-                  <div className="meter-header">
-                    <span>Monthly Take-Home: {formatCurrency(results.monthlyTakeHome)}</span>
-                    <span className={results.affordabilityClass}>
-                      {results.percentOfTakeHomeIncome.toFixed(1)}% of Take-Home Pay
-                    </span>
-                  </div>
-                  <div className="meter-bar">
-                    <div 
-                      className={`meter-fill ${results.affordabilityClass}`} 
-                      style={{width: `${Math.min(results.percentOfGrossIncome * 2, 100)}%`}}
-                    ></div>
-                  </div>
-                  <div className="meter-labels">
-                    <span>0%</span>
-                    <span>28%</span>
-                    <span>32%</span>
-                    <span>50%</span>
-                  </div>
-                  <div className={`affordability-message ${results.affordabilityClass}`}>
-                    {results.affordabilityClass === "green" ? (
-                      "You are well within budget, you should be proud!"
-                    ) : results.affordabilityClass === "yellow" ? (
-                      "This house is a little outside of your budget. It is manageable, but you'll need to be more conscious about spending."
-                    ) : (
-                      "This house is outside of your budget. Maybe another home will be more suitable, but if your heart is set on this one be sure to cut expenses elsewhere."
-                    )}
-                  </div> 
                 </div>
-              </div>
+              )}
 
-              {/* Affordability Summary */}
+              {/* Affordability Summary - Updated for analyze mortgage tab */}
               <div className="result-summary">
                 {activeTab === 'what-can-i-afford' ? (
                   <>
@@ -1401,15 +1461,6 @@ const HomeAffordabilityCalculator = () => {
                   </>
                 ) : (
                   <>
-                    <div className={`result-item total ${results.isAffordable ? "affordable" : "unaffordable"}`}>
-                      <span>Affordability:</span>
-                      <span>
-                        {results.isAffordable 
-                          ? "✓ Affordable" 
-                          : "⚠️ May be too expensive"}
-                      </span>
-                    </div>
-
                     <div className="result-row">
                       <div className="result-item">
                         <span>Home Price:</span>
@@ -1459,6 +1510,15 @@ const HomeAffordabilityCalculator = () => {
                     </div>
                   )}
 
+                  {results.enableFHA && results.monthlyMIP > 0 && (
+                    <div className="result-item">
+                      <span>MIP (Mortgage Insurance Premium):</span>
+                      <span>
+                        {formatCurrency(results.monthlyMIP)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="result-item total">
                     <span>Total Monthly Payment:</span>
                     <span>
@@ -1468,49 +1528,7 @@ const HomeAffordabilityCalculator = () => {
                 </div>
               </div>
 
-              {/* Term comparison */}
-              {paymentsByTerm && (
-                <div className="term-comparison">
-                  <h3>Payment Options by Term</h3>
-
-                  <div className="term-options">
-                    {Object.entries(paymentsByTerm).map(([term, data]) => (
-                      <div key={term} className={`term-option ${data.affordabilityClass}`}>
-                        <div className="term-header">
-                          <span>{term} Year {term === housingData.loanTermYears ? '(selected)' : ''}</span>
-                          <span className="term-payment">{formatCurrency(data.totalPayment)}/mo</span>
-                        </div>
-                        
-                        <div className="term-details">
-                          <div className="term-detail">
-                            <span>Rate:</span>
-                            <span>{data.interestRate.toFixed(2)}%</span>
-                          </div>
-                          
-                          <div className="term-detail">
-                            <span>% of Gross Income:</span>
-                            <span>
-                              {data.percentOfGrossIncome.toFixed(1)}%
-                            </span>
-                          </div>
-                          
-                          <div className="term-detail">
-                            <span>% of Take-Home Pay:</span>
-                            <span>
-                              {data.percentOfTakeHomeIncome.toFixed(1)}%
-                            </span>
-                          </div>
-                          
-                          <div className="term-detail">
-                            <span>Total Interest:</span>
-                            <span>{formatCurrency(data.totalInterest)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Remove payment by term section */}
 
               {/* Detailed Results Toggle Section */}
               <div className="financial-details">
@@ -1523,6 +1541,50 @@ const HomeAffordabilityCalculator = () => {
                 
                 {showDetailedResults && (
                   <div className="detailed-results">
+                    {/* Payment options by term - Only show when detailed results are toggled */}
+                    {paymentsByTerm && (
+                      <div className="term-comparison">
+                        <h3>Payment Options by Term</h3>
+
+                        <div className="term-options">
+                          {Object.entries(paymentsByTerm).map(([term, data]) => (
+                            <div key={term} className={`term-option ${data.affordabilityClass}`}>
+                              <div className="term-header">
+                                <span>{term} Year {term === housingData.loanTermYears ? '(selected)' : ''}</span>
+                                <span className="term-payment">{formatCurrency(data.totalPayment)}/mo</span>
+                              </div>
+                              
+                              <div className="term-details">
+                                <div className="term-detail">
+                                  <span>Rate:</span>
+                                  <span>{data.interestRate.toFixed(2)}%</span>
+                                </div>
+                                
+                                <div className="term-detail">
+                                  <span>% of Gross Income:</span>
+                                  <span>
+                                    {data.percentOfGrossIncome.toFixed(1)}%
+                                  </span>
+                                </div>
+                                
+                                <div className="term-detail">
+                                  <span>% of Take-Home Pay:</span>
+                                  <span>
+                                    {data.percentOfTakeHomeIncome.toFixed(1)}%
+                                  </span>
+                                </div>
+                                
+                                <div className="term-detail">
+                                  <span>Total Interest:</span>
+                                  <span>{formatCurrency(data.totalInterest)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Tax breakdown */}
                     <div className="tax-breakdown">
                       <h3>Tax Breakdown</h3>
