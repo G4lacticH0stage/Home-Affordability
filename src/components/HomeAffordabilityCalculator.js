@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import './HomeAffordabilityCalculator.css'; // FIXED: Changed from TaxCalculator.css
-// NOTE: You'll need to create HomeAffordabilityCalculator.css or rename TaxCalculator.css 
-// and remove any fixed "Tax Calculator" headers from the CSS file
-import { INDIANA_COUNTIES } from '../data/indianaTaxData';
-import { MARYLAND_COUNTIES } from '../data/marylandTaxData';
-import { MICHIGAN_CITIES, calculateMichiganLocalTax } from '../data/michiganTaxData';
-import { MISSOURI_CITIES } from '../data/missouriTaxData';
-import { NEW_JERSEY_CITIES } from '../data/newJerseyTaxData';
-import { NEW_YORK_TAX, calculateNYTax } from '../data/newYorkTaxData';
-import { OHIO_MUNICIPALITIES } from '../data/ohioTaxData';
-import { OREGON_TAX } from '../data/oregon-tax';
-import { PENNSYLVANIA_TAX } from '../data/pennsylvaniaTaxData';
-import { WEST_VIRGINIA_TAX } from '../data/westVirginiaTaxData';
-import { STATE_TAX_DATA } from '../data/tax-data';
+import './HomeAffordabilityCalculator.css';
+import { PROPERTY_TAX_RATES } from './data/propertyTaxRates';
+import { INDIANA_COUNTIES } from './data/indianaTaxData';
+import { MARYLAND_COUNTIES } from './data/marylandTaxData';
+import { MICHIGAN_CITIES, calculateMichiganLocalTax } from './data/michiganTaxData';
+import { MISSOURI_CITIES } from './data/missouriTaxData';
+import { NEW_JERSEY_CITIES } from './data/newJerseyTaxData';
+import { NEW_YORK_TAX, calculateNYTax } from './data/newYorkTaxData';
+import { OHIO_MUNICIPALITIES } from './data/ohioTaxData';
+import { OREGON_TAX } from './data/oregonTaxData';
+import { PENNSYLVANIA_TAX } from './data/pennsylvaniaTaxData';
+import { WEST_VIRGINIA_TAX } from './data/westVirginiaTaxData';
+import { STATE_TAX_DATA } from './data/tax-data';
 
 // Utility functions
 const calculateMonthlyMortgage = (homePrice, downPayment, interestRate, loanTermYears) => {
@@ -86,7 +85,6 @@ const formatPercentage = (value) => {
 };
 
 // Federal Tax Brackets 2024
-// Define the federal tax brackets correctly with "limit" being the upper bound of each bracket
 const FEDERAL_TAX_BRACKETS_2024 = [
   { min: 0, max: 11600, rate: 0.10 },
   { min: 11600, max: 47150, rate: 0.12 },
@@ -120,36 +118,6 @@ const calculateProgressiveTax = (income, brackets) => {
   
   return tax;
 };
-
-// Example calculation for $58,000 income
-function calculateExampleTax() {
-  const income = 58000;
-  const federalTax = calculateProgressiveTax(income, FEDERAL_TAX_BRACKETS_2024);
-  
-  console.log(`Federal tax on $${income.toFixed(2)}:`);
-  
-  // Show calculation breakdown
-  let totalTax = 0;
-  for (let i = 0; i < FEDERAL_TAX_BRACKETS_2024.length; i++) {
-    const bracket = FEDERAL_TAX_BRACKETS_2024[i];
-    if (income > bracket.min) {
-      const taxableAmount = Math.min(income, bracket.max) - bracket.min;
-      const taxInBracket = taxableAmount * bracket.rate;
-      totalTax += taxInBracket;
-      
-      console.log(`${bracket.min.toLocaleString()} to ${Math.min(income, bracket.max).toLocaleString()}: ${taxableAmount.toLocaleString()} @ ${(bracket.rate * 100).toFixed(1)}% = $${taxInBracket.toFixed(2)}`);
-    }
-    
-    if (income <= bracket.max) break;
-  }
-  
-  console.log(`Total federal tax: $${totalTax.toFixed(2)}`);
-  console.log(`Effective tax rate: ${((totalTax / income) * 100).toFixed(2)}%`);
-  
-  return federalTax;
-}
-
-calculateExampleTax();
 
 // FICA rates
 const FICA_RATES = {
@@ -240,7 +208,6 @@ const convertToAnnualIncome = (income, payType) => {
       return numericIncome;
   }
 };
-
 
 // Calculate FICA taxes (Social Security and Medicare)
 const calculateFICATax = (income) => {
@@ -396,19 +363,21 @@ const HomeAffordabilityCalculator = () => {
     monthlyTakeHome: ''
   });
 
-  // Housing state - FIXED: Added interestRate to initial state
+  // Housing state - Updated with property tax fields
   const [housingData, setHousingData] = useState({
     homePrice: '',
     downPaymentType: 'percent', // 'percent' or 'amount'
     downPaymentPercent: '20',
     downPaymentAmount: '',
     loanTermYears: '30',
-    interestRate: '6.5', // FIXED: Added default interest rate
+    interestRate: '6.5',
     includePropertyTax: true,
-    propertyTaxRate: '1.1',
+    propertyTaxState: '',
+    propertyTaxCounty: '',
+    customPropertyTaxRate: '2.8', // Default 2.8% rate
     includeHomeInsurance: true,
     homeInsurance: '1200',
-    enableFHA: false // NEW: Added FHA loan option
+    enableFHA: false
   });
 
   // Additional financial details
@@ -423,6 +392,38 @@ const HomeAffordabilityCalculator = () => {
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [paymentsByTerm, setPaymentsByTerm] = useState(null);
+  const [availablePropertyTaxCounties, setAvailablePropertyTaxCounties] = useState([]);
+
+  // Calculate property tax rate based on state/county selection or use default
+  const getPropertyTaxRate = () => {
+    if (!housingData.propertyTaxState || !housingData.propertyTaxCounty) {
+      // Use default 2.8% rate
+      return parseFloat(housingData.customPropertyTaxRate) / 100;
+    }
+    
+    const stateRates = PROPERTY_TAX_RATES[housingData.propertyTaxState];
+    if (!stateRates) {
+      return parseFloat(housingData.customPropertyTaxRate) / 100;
+    }
+    
+    const countyRate = stateRates[housingData.propertyTaxCounty];
+    if (!countyRate) {
+      return parseFloat(housingData.customPropertyTaxRate) / 100;
+    }
+    
+    return countyRate;
+  };
+
+  // Update available counties when property tax state changes
+  useEffect(() => {
+    if (housingData.propertyTaxState && PROPERTY_TAX_RATES[housingData.propertyTaxState]) {
+      const counties = Object.keys(PROPERTY_TAX_RATES[housingData.propertyTaxState]);
+      setAvailablePropertyTaxCounties(counties);
+      setHousingData(prev => ({ ...prev, propertyTaxCounty: '' }));
+    } else {
+      setAvailablePropertyTaxCounties([]);
+    }
+  }, [housingData.propertyTaxState]);
 
   // Add city selection for local tax calculations
   const getJurisdictionsForState = (state) => {
@@ -478,7 +479,7 @@ const HomeAffordabilityCalculator = () => {
   useEffect(() => {
     const term = parseInt(housingData.loanTermYears, 10);
     const defaultRate = DEFAULT_INTEREST_RATES[term] || DEFAULT_INTEREST_RATES[30];
-    setHousingData(prev => ({ ...prev, interestRate: defaultRate.toString() })); // FIXED: Convert to string
+    setHousingData(prev => ({ ...prev, interestRate: defaultRate.toString() }));
   }, [housingData.loanTermYears]);
 
   // Handle FHA toggle and set down payment to 3.5%
@@ -605,7 +606,7 @@ const HomeAffordabilityCalculator = () => {
       }
     }
 
-    // FIXED: Validate interest rate
+    // Validate interest rate
     if (!housingData.interestRate || isNaN(parseFloat(housingData.interestRate)) || parseFloat(housingData.interestRate) < 0) {
       newErrors.interestRate = 'Please enter a valid interest rate';
     }
@@ -657,7 +658,7 @@ const HomeAffordabilityCalculator = () => {
       // Parse other inputs
       const monthlyDebts = parseFloat(financialData.monthlyDebts) || 0;
       const hasDebts = monthlyDebts > 0;
-      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30]; // FIXED: Added fallback
+      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30];
       const loanTermYears = parseInt(housingData.loanTermYears, 10);
       
       // Determine down payment based on type
@@ -682,7 +683,7 @@ const HomeAffordabilityCalculator = () => {
       let additionalHousingCosts = 0;
       
       if (housingData.includePropertyTax) {
-        const propertyTaxRate = parseFloat(housingData.propertyTaxRate) / 100;
+        const propertyTaxRate = getPropertyTaxRate();
         // Will estimate with a placeholder value for now
         additionalHousingCosts += (300000 * propertyTaxRate) / 12; // Placeholder home value
       }
@@ -765,7 +766,7 @@ const HomeAffordabilityCalculator = () => {
       let monthlyMIP = 0;
       
       if (housingData.includePropertyTax) {
-        const propertyTaxRate = parseFloat(housingData.propertyTaxRate) / 100;
+        const propertyTaxRate = getPropertyTaxRate();
         monthlyPropertyTax = (maxHomePrice * propertyTaxRate) / 12;
         totalMonthlyPayment += monthlyPropertyTax;
       }
@@ -810,7 +811,7 @@ const HomeAffordabilityCalculator = () => {
           totalTermPayment += monthlyMIP;
         }
         
-        // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
+        // Calculate total interest paid over loan term
         const totalInterest = (termPayment * term * 12) - (maxHomePrice - downPaymentAmount);
         
         // Calculate percentage of gross income
@@ -860,7 +861,8 @@ const HomeAffordabilityCalculator = () => {
         percentOfTakeHomeIncome: percentOfTakeHomeIncome,
         affordabilityClass: affordabilityClass,
         taxResults: taxResults,
-        enableFHA: housingData.enableFHA
+        enableFHA: housingData.enableFHA,
+        propertyTaxRate: getPropertyTaxRate()
       });
       
       // Set payment options by term
@@ -872,7 +874,7 @@ const HomeAffordabilityCalculator = () => {
     }
   };
   
-  // Calculate affordability for a specific home price - FIXED: Added missing function
+  // Calculate affordability for a specific home price
   const analyzeMortgage = () => {
     if (!validateForm()) return;
     
@@ -911,7 +913,7 @@ const HomeAffordabilityCalculator = () => {
       const homePrice = parseFloat(housingData.homePrice);
       const monthlyDebts = parseFloat(financialData.monthlyDebts) || 0;
       const hasDebts = monthlyDebts > 0;
-      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30]; // FIXED: Added fallback
+      const interestRate = parseFloat(housingData.interestRate) || DEFAULT_INTEREST_RATES[30];
       const loanTermYears = parseInt(housingData.loanTermYears, 10);
       
       // Calculate down payment
@@ -942,7 +944,7 @@ const HomeAffordabilityCalculator = () => {
       let monthlyMIP = 0;
       
       if (housingData.includePropertyTax) {
-        const propertyTaxRate = parseFloat(housingData.propertyTaxRate) / 100;
+        const propertyTaxRate = getPropertyTaxRate();
         monthlyPropertyTax = (homePrice * propertyTaxRate) / 12;
         totalMonthlyPayment += monthlyPropertyTax;
       }
@@ -1008,7 +1010,7 @@ const HomeAffordabilityCalculator = () => {
           totalTermPayment += monthlyMIP;
         }
         
-        // Calculate total interest paid over loan term - FIXED: Use the actual loan amount for this home
+        // Calculate total interest paid over loan term
         const totalInterest = (termPayment * term * 12) - (homePrice - downPaymentAmount);
         
         // Calculate percentage of gross income
@@ -1050,7 +1052,8 @@ const HomeAffordabilityCalculator = () => {
         affordabilityClass: affordabilityClass,
         isAffordable: isAffordable,
         taxResults: taxResults,
-        enableFHA: housingData.enableFHA
+        enableFHA: housingData.enableFHA,
+        propertyTaxRate: getPropertyTaxRate()
       });
       
       // Set payment options by term
@@ -1315,15 +1318,53 @@ const HomeAffordabilityCalculator = () => {
                   </div>
                   
                   {housingData.includePropertyTax && (
-                    <div className="input-group">
-                      <label>Property Tax Rate (%/year)</label>
-                      <input
-                        type="number"
-                        value={housingData.propertyTaxRate}
-                        onChange={(e) => handleHousingChange('propertyTaxRate', e.target.value)}
-                        step="0.01"
-                        min="0"
-                      />
+                    <div className="property-tax-section">
+                      <div className="input-group">
+                        <label>Property Tax State (optional)</label>
+                        <select
+                          value={housingData.propertyTaxState}
+                          onChange={(e) => handleHousingChange('propertyTaxState', e.target.value)}
+                        >
+                          <option value="">Select State</option>
+                          {Object.keys(PROPERTY_TAX_RATES).map(state => (
+                            <option key={state} value={state}>{state}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      {housingData.propertyTaxState && availablePropertyTaxCounties.length > 0 && (
+                        <div className="input-group">
+                          <label>Property Tax County</label>
+                          <select
+                            value={housingData.propertyTaxCounty}
+                            onChange={(e) => handleHousingChange('propertyTaxCounty', e.target.value)}
+                          >
+                            <option value="">Select County</option>
+                            {availablePropertyTaxCounties.map(county => (
+                              <option key={county} value={county}>{county}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      
+                      <div className="input-group">
+                        <label>Property Tax Rate (%/year)</label>
+                        <input
+                          type="number"
+                          value={housingData.customPropertyTaxRate}
+                          onChange={(e) => handleHousingChange('customPropertyTaxRate', e.target.value)}
+                          step="0.01"
+                          min="0"
+                          placeholder="Default: 2.8%"
+                        />
+                        <small>
+                          Current rate: {(getPropertyTaxRate() * 100).toFixed(3)}%
+                          {housingData.propertyTaxState && housingData.propertyTaxCounty 
+                            ? ` (${housingData.propertyTaxCounty}, ${housingData.propertyTaxState})`
+                            : ' (default)'
+                          }
+                        </small>
+                      </div>
                     </div>
                   )}
                   
@@ -1494,7 +1535,7 @@ const HomeAffordabilityCalculator = () => {
 
                   {results.monthlyPropertyTax > 0 && (
                     <div className="result-item">
-                      <span>Property Tax:</span>
+                      <span>Property Tax ({(results.propertyTaxRate * 100).toFixed(3)}%):</span>
                       <span>
                         {formatCurrency(results.monthlyPropertyTax)}
                       </span>
@@ -1527,8 +1568,6 @@ const HomeAffordabilityCalculator = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Remove payment by term section */}
 
               {/* Detailed Results Toggle Section */}
               <div className="financial-details">
@@ -1631,6 +1670,15 @@ const HomeAffordabilityCalculator = () => {
                   <li><strong>36% Rule:</strong> Your total monthly debt payments (including mortgage) should not exceed 36% of your gross monthly income.</li>
                 </ul>
                 <p>The calculator uses these rules to determine either how much home you can afford or whether a specific home price is affordable for you.</p>
+                
+                <h4>Property Tax Integration</h4>
+                <p>Property taxes are calculated using:</p>
+                <ul>
+                  <li><strong>State/County Data:</strong> Actual property tax rates by county when selected</li>
+                  <li><strong>Default Rate:</strong> 2.8% annual rate when no location is specified</li>
+                  <li><strong>What Can I Afford:</strong> Property tax on maximum affordable home price</li>
+                  <li><strong>Analyze Mortgage:</strong> Property tax on entered home price</li>
+                </ul>
               </div>
             </div>
           )}
